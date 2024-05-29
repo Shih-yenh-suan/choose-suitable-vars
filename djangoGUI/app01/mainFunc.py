@@ -20,8 +20,8 @@ import pandas as pd
 import statsmodels.formula.api as smf
 from linearmodels import PanelOLS
 from linearmodels.panel.model import AbsorbingEffectWarning
-from config import *
-from utils import *
+from .config import *
+from .utils import *
 
 
 class ModelChoosing:
