@@ -14,14 +14,15 @@ dta表格路径
 封装成页面
 
 """
+from tqdm import tqdm
 import os
 import warnings
 import pandas as pd
 import statsmodels.formula.api as smf
 from linearmodels import PanelOLS
 from linearmodels.panel.model import AbsorbingEffectWarning
-from .config import *
-from .utils import *
+from config import *
+from utils import *
 
 
 class ModelChoosing:
@@ -36,6 +37,18 @@ class ModelChoosing:
         self.symbol = df[dict["symbol"]]
         self.date = df[dict["date"]]
 
+    def optionAndGroups(self, option, data):
+        if option == None:
+            cov_type = "nonrobust"
+            cov_kwds = None
+        elif option == "r":
+            cov_type = "HC1"
+            cov_kwds = None
+        elif option == "Symbol":
+            cov_type = "cluster"
+            cov_kwds = {'groups': data[self.dict["symbol"]]}
+        return cov_type, cov_kwds
+
     def reg_model(self, options=None):
         '''返回混合OLS的回归结果'''
         # 存储所有结果
@@ -43,22 +56,20 @@ class ModelChoosing:
         # 合并数据
         data = pd.concat([self.iv, self.dv, self.cv, self.fe,
                           self.symbol, self.date], axis=1)
+        for col in self.mod.columns:
+            moderator = self.mod[[col]]
+            data = pd.concat([data, moderator], axis=1)
+        available_data = data.loc[:, data.columns].dropna(how='any')
         # 生成回归指令
         cv_formula = ' + '.join(self.cv.columns)
         fe_formula = ' + '.join(f'C({col})' for col in self.fe.columns)
         formula_basic = f'{self.dict["dv"]} ~ {self.dict["iv"]} + {cv_formula} + {fe_formula}'
+
+        print(formula_basic)
         # 生成模型
-        model = smf.ols(formula_basic, data=data)
+        model = smf.ols(formula_basic, data=available_data, missing="drop")
         # 根据 option 生成聚类方法
-        if options == None:
-            cov_type = "nonrobust"
-            cov_kwds = None
-        elif options == "r":
-            cov_type = "HC1"
-            cov_kwds = None
-        elif options == "Symbol":
-            cov_type = "cluster"
-            cov_kwds = {'groups': data['Symbol']}
+        cov_type, cov_kwds = self.optionAndGroups(options, available_data)
         result = model.fit(cov_type=cov_type, cov_kwds=cov_kwds)
         p_values = result.pvalues[self.dict["iv"]]
         t_values = result.tvalues[self.dict["iv"]]
@@ -66,12 +77,11 @@ class ModelChoosing:
 
         if self.mod is not None:
             for col in self.mod.columns:
-                moderator = self.mod[[col]]
-                data = pd.concat([self.iv, self.dv, self.cv, self.fe,
-                                  self.symbol, self.date, moderator], axis=1)
                 mod_formula = f'{col} + {col}:{self.dict["iv"]}'
                 formula = f'{formula_basic} + {mod_formula}'
-                model = smf.ols(formula, data=data)
+                model = smf.ols(formula, data=available_data)
+                cov_type, cov_kwds = self.optionAndGroups(
+                    options, available_data)
                 result = model.fit(cov_type=cov_type, cov_kwds=cov_kwds)
                 p_values = result.pvalues[f'{col}:{self.dict["iv"]}']
                 t_values = result.tvalues[self.dict["iv"]]
@@ -154,11 +164,10 @@ if __name__ == "__main__":
     else:
         header = False
     result_df = pd.DataFrame()
-
-    for cv in cv_list:
+    for cv in tqdm(cv_list):
         print(f"当前控制变量：{cv}")
         model_regresser = ModelChoosing(df, Varlist, cv)
-        result_list = model_regresser.reg_model("r")
+        result_list = model_regresser.reg_model("Symbol")
         result_list.to_csv(r'choose-suitable-vars\results.csv',
                            mode='a', header=header)
         result_df = pd.concat([result_df, result_list], axis=0)

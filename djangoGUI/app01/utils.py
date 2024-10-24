@@ -116,7 +116,7 @@ def unpack_Bracket(input_str):
     return result
 
 
-def get_control_variables(input_str, max_num=20, min_num=6):
+def get_control_variables(input_str, max_num=15, min_num=6):
     """获取控制变量"""
     result_list = unpack_Braces(input_str)
     list = []
@@ -140,5 +140,5 @@ def change_to_df(cv_list, tuple_list):
 
 
 if __name__ == "__main__":
-    input_str = ""
+    input_str = r"{Subsidiary_log} Age Dual Big4 Indie Top_Salary_log CR_1 EnvPerformance_log FDI HHI_A {GDP_growth} Prolist MNE [SeperationM SeperationR] {Size ROA Growth Lev } Cur PPE Invint"
     print(len(get_control_variables(input_str)))

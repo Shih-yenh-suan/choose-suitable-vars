@@ -34,7 +34,7 @@ Varlist：
 
 path: 指定 stata 的.dta 文件的保存路径。
 
-## 在 main.py 中选择模型
+## 在 mainFunc.py 中选择模型
 
 将第 161 行替换为：
 
